@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype II – Fairy Interaction</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Cormorant+Garamond:ital,wght@0,400;1,400;1,600&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  CANVAS SETUP
+// ─────────────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('game');
+const ctx    = canvas.getContext('2d');
+
+function resize() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); initAll(); });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SVG ASSETS  (foreignObject elements stripped for canvas-safe rendering)
+// ─────────────────────────────────────────────────────────────────────────────
+const FAIRY_SVG = `<svg width="79" height="123" viewBox="0 0 79 123" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M15.8098 53.7231C14.0384 28.891 23.5559 15.9667 33.1703 12.9617C42.0219 10.1951 48.5234 2.50285 49.2652 0.718183C49.1041 3.37653 48.8598 20.929 36.8723 33.9857C23.6291 48.41 22.5064 46.6972 19.6032 49.165C16.7001 51.6327 15.8098 53.7231 15.8098 53.7231Z" fill="#A2D2D5"/>
+  <path d="M15.8098 53.7231C14.0384 28.891 23.5559 15.9667 33.1703 12.9617C42.7847 9.95668 49.6265 1.1405 49.3265 0.395343C49.0265 -0.34981 50.1155 19.5614 36.8723 33.9857C23.6291 48.41 22.5064 46.6972 19.6032 49.165C16.7001 51.6327 15.8098 53.7231 15.8098 53.7231Z" stroke="#8FBFC3" stroke-width="0.75"/>
+  <path d="M15 54.4032C24.5 24.9032 41.5 14.4032 54 15.4032C65.5083 16.3239 76.5927 10.4636 78.2791 8.74755C76.8571 11.7425 68.4141 31.8987 48.5 41.4032C26.5001 51.9032 25.9999 49.4032 21.5 50.9032C17.0001 52.4032 15 54.4032 15 54.4032Z" fill="#D0F7FA" fill-opacity="0.7"/>
+  <path d="M15 54.4032C24.5 24.9032 41.5 14.4032 54 15.4032C66.5 16.4032 78.5 9.40322 78.5 8.40322C78.5 7.40322 70.4999 30.9032 48.5 41.4032C26.5001 51.9032 25.9999 49.4032 21.5 50.9032C17.0001 52.4032 15 54.4032 15 54.4032Z" stroke="#BEE6E9" stroke-width="0.75"/>
+  <circle cx="13" cy="58.3723" r="13" fill="url(#bG)"/>
+  <path d="M17 61.5284C47.9615 62.9006 62.5782 76.5242 64.9148 88.8445C67.066 100.187 75.6454 109.331 77.7459 110.504C74.4817 109.923 52.8114 107.103 38.3854 90.406C22.4483 71.96 24.7274 70.8174 22.0923 66.8733C19.4572 62.9293 17 61.5284 17 61.5284Z" fill="#D0F7FA"/>
+  <path d="M17 61.5284C47.9615 62.9006 62.5782 76.5242 64.9148 88.8445C67.2514 101.165 77.1719 110.89 78.1364 110.626C79.1009 110.362 54.3225 108.852 38.3854 90.406C22.4483 71.96 24.7274 70.8174 22.0923 66.8733C19.4572 62.9293 17 61.5284 17 61.5284Z" stroke="#BEE6E9" stroke-width="0.75"/>
+  <defs>
+    <linearGradient id="bG" x1="13" y1="45.3723" x2="13" y2="71.3723" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CAE1FF"/><stop offset="1" stop-color="#F67AC5"/>
+    </linearGradient>
+  </defs>
+</svg>`;
+
+const POT_SVG = `<svg width="148" height="228" viewBox="0 0 148 228" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M78 102.348H71V83.1523C71.982 83.2803 72.9832 83.3477 74 83.3477C75.3644 83.3477 76.7009 83.2278 78 83V102.348Z" fill="#B8CEAC"/>
+  <path d="M77.6445 0C75.9617 4.73526 75 10.206 75 16.0342C75 25.7123 77.6516 34.4039 81.8584 40.3779C90.6912 43.5889 97 52.0575 97 62C97 74.7025 86.7025 85 74 85C61.2975 85 51 74.7025 51 62C51 52.06 57.3055 43.5927 66.1348 40.3799C70.344 34.4061 73 25.7149 73 16.0342C73 10.206 72.0383 4.73526 70.3555 0H77.6445Z" fill="#EEC1C1"/>
+  <path d="M115.033 220.086C113.776 224.334 109.874 227.249 105.444 227.249H43.3216C38.8914 227.249 34.9892 224.334 33.7324 220.086L13.0582 150.203C12.7295 149.092 13.8494 148 15.0078 148H133.758C134.916 148 136.036 149.092 135.708 150.203L115.033 220.086Z" fill="#98776B"/>
+  <rect y="100" width="148" height="50" rx="8" fill="#765A50"/>
+  <path d="M76.0862 62.1565L85.4388 55.4135L87.3201 64.7522L76.0862 62.1565Z" fill="white"/>
+</svg>`;
+
+const fairyImg = new Image();
+fairyImg.src   = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(FAIRY_SVG);
+const potImg   = new Image();
+potImg.src     = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(POT_SVG);
+
+const flowerImgs = [
+  Object.assign(new Image(), { src: 'Prototype II_Strelitzia.png'   }),
+  Object.assign(new Image(), { src: 'Prototype II_Alstroemeria.png' }),
+  Object.assign(new Image(), { src: 'Prototype II_Plum Blossom.png' }),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GAME STATE
+// ─────────────────────────────────────────────────────────────────────────────
+// States: 'room1_initial' | 'room2' | 'room1_seeded' | 'room1_bloomed'
+let gameState    = 'room1_initial';
+let selectedSeed = null;   // 0 | 1 | 2
+let seedObtained = false;
+let potActivated = false;  // prevents re-trigger
+
+const pouches = [
+  { active: true, opacity: 1, color: '#FFA940' },
+  { active: true, opacity: 1, color: '#F5BDBF' },
+  { active: true, opacity: 1, color: '#FFB6D9' },
+];
+const POUCH_BODY  = ['#f5dbb8', '#f9d8df', '#eed0e8'];
+const POUCH_TRIM  = ['#c8974a', '#d49aaa', '#b87ab0'];
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FAIRY
+// ─────────────────────────────────────────────────────────────────────────────
+const FS = 1.6;                  // fairy draw scale
+const FW = Math.round(79  * FS); // ~126
+const FH = Math.round(123 * FS); // ~197
+const SPEED = 4.2;
+
+const fairy = { x: 0, y: 0, vx: 0, vy: 0, facingLeft: false };
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  INPUT
+// ─────────────────────────────────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'KeyY') handleY();
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault();
+});
+window.addEventListener('keyup',   e => { keys[e.code] = false; });
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  LAYOUT – recalculated on resize
+// ─────────────────────────────────────────────────────────────────────────────
+let W, H;
+let potX, potY, potSc;
+let potHeadSX, potHeadSY;
+let rPortalX, rPortalW, lPortalX, lPortalW;
+let pouchLayouts = [];
+let glitterR = [], glitterL = [];
+let vinesCeiling = [];
+let potVines     = [];
+
+function initAll() {
+  W = canvas.width; H = canvas.height;
+  potSc = Math.min(1.3, H / 380);
+  potX  = 130;
+  potY  = H - Math.round(228 * potSc) - 18;
+  potHeadSX = potX + Math.round(74  * potSc);
+  potHeadSY = potY + Math.round(42  * potSc);
+
+  rPortalX = W - 110; rPortalW = 90;
+  lPortalX = 10;       lPortalW = 90;
+
+  pouchLayouts = [
+    { cx: W * 0.62, vineLen: 210 + H * 0.06, w: 48, h: 58 },
+    { cx: W * 0.74, vineLen: 255 + H * 0.06, w: 48, h: 58 },
+    { cx: W * 0.86, vineLen: 195 + H * 0.06, w: 48, h: 58 },
+  ];
+
+  glitterR   = mkParticles(rPortalX, rPortalW, 60);
+  glitterL   = mkParticles(lPortalX, lPortalW, 60);
+  vinesCeiling = mkVines(W, 8, 90, 175);
+  potVines     = mkPotVines();
+
+  // Spawn position
+  if (gameState.startsWith('room1')) {
+    fairy.x = W / 2 - FW / 2;
+    fairy.y = H * 0.42 - FH / 2;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PARTICLES
+// ─────────────────────────────────────────────────────────────────────────────
+function mkParticles(zx, zw, n) {
+  const cols = ['#ffffff','#FFFACD','#E0F0FF','#FFE8F7','#FFD4F0','#d4f0ff','#fff8e8'];
+  return Array.from({ length: n }, () => ({
+    x: zx + Math.random() * zw,
+    y: 100  + Math.random() * (H - 200),
+    ph: Math.random() * Math.PI * 2,
+    sz: 2.5 + Math.random() * 5,
+    col: cols[Math.floor(Math.random() * cols.length)],
+    sp: 0.8 + Math.random() * 1.6,
+    dx: (Math.random() - 0.5) * 0.25,
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  VINES
+// ─────────────────────────────────────────────────────────────────────────────
+function mkVines(W, count, minL, maxL) {
+  return Array.from({ length: count }, (_, i) => {
+    const bx  = (W / (count + 1)) * (i + 1);
+    const len = minL + Math.random() * (maxL - minL);
+    return {
+      bx,
+      c1x: bx + (Math.random() - 0.5) * 65,  c1y: len * 0.38,
+      c2x: bx + (Math.random() - 0.5) * 45,  c2y: len * 0.75,
+      ex:  bx + (Math.random() - 0.5) * 30,  ey:  len,
+      leaves: Array.from({ length: 2 + Math.floor(Math.random() * 3) }, (_, j) => ({
+        t:    0.15 + j * 0.28 + Math.random() * 0.1,
+        flip: j % 2 === 0,
+        sz:   7 + Math.random() * 6,
+      })),
+    };
+  });
+}
+
+function mkPotVines() {
+  const xs = [potX + 20, potX + 55, potX + 95, potX + 130];
+  return xs.map(bx => ({
+    bx,
+    c1x: bx + (Math.random() - 0.5) * 55, c1y: (280 + Math.random() * 80) * 0.38,
+    c2x: bx + (Math.random() - 0.5) * 40, c2y: (280 + Math.random() * 80) * 0.72,
+    ex:  bx + (Math.random() - 0.5) * 28, ey:  280 + Math.random() * 80,
+    leaves: Array.from({ length: 3 }, (_, j) => ({
+      t: 0.15 + j * 0.28,
+      flip: j % 2 === 0,
+      sz: 7 + Math.random() * 5,
+    })),
+  }));
+}
+
+function ptOnBez(t, x0, y0, cx1, cy1, cx2, cy2, x1, y1) {
+  const m = 1 - t;
+  return {
+    x: m*m*m*x0 + 3*m*m*t*cx1 + 3*m*t*t*cx2 + t*t*t*x1,
+    y: m*m*m*y0 + 3*m*m*t*cy1 + 3*m*t*t*cy2 + t*t*t*y1,
+  };
+}
+
+function drawVine(v, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.moveTo(v.bx, 0);
+  ctx.bezierCurveTo(v.c1x, v.c1y, v.c2x, v.c2y, v.ex, v.ey);
+  ctx.strokeStyle = '#3d6b2a';
+  ctx.lineWidth   = 2.2;
+  ctx.stroke();
+
+  for (const lf of v.leaves) {
+    const p = ptOnBez(lf.t, v.bx,0, v.c1x,v.c1y, v.c2x,v.c2y, v.ex,v.ey);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(lf.flip ? 0.55 : -0.55);
+    ctx.scale(lf.flip ? 1 : -1, 1);
+    ctx.beginPath();
+    ctx.ellipse(lf.sz * 0.85, 0, lf.sz, lf.sz * 0.42, 0.18, 0, Math.PI * 2);
+    ctx.fillStyle = '#4d8030';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Tendril curl
+  ctx.beginPath();
+  for (let a = 0, r = 9; a < Math.PI * 1.6 && r > 0.5; a += 0.12) {
+    r = 9 - a * 1.8;
+    const px = v.ex + Math.cos(a) * r;
+    const py = v.ey + Math.sin(a) * r;
+    if (a < 0.01) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.lineWidth   = 1.2;
+  ctx.strokeStyle = '#4a7c35';
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  DRAWING HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function drawBg() {
+  const g = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, Math.hypot(W, H) * 0.72);
+  g.addColorStop(0,    '#1e0b3d');
+  g.addColorStop(0.3,  '#0e2b40');
+  g.addColorStop(0.65, '#1a0a2e');
+  g.addColorStop(1,    '#2d093e');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Soft colour wash
+  const sh = ctx.createLinearGradient(0, 0, W, H);
+  sh.addColorStop(0,   'rgba(110,55,190,0.07)');
+  sh.addColorStop(0.5, 'rgba(55,155,210,0.05)');
+  sh.addColorStop(1,   'rgba(190,55,140,0.07)');
+  ctx.fillStyle = sh;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawStar(x, y, sz, col, a) {
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.fillStyle   = col;
+  ctx.beginPath();
+  for (let i = 0; i < 4; i++) {
+    const ang  = (i / 4) * Math.PI * 2 - Math.PI / 4;
+    const inn  = sz * 0.22;
+    ctx.lineTo(x + Math.cos(ang)              * sz,  y + Math.sin(ang)              * sz);
+    ctx.lineTo(x + Math.cos(ang + Math.PI/4)  * inn, y + Math.sin(ang + Math.PI/4)  * inn);
+  }
+  ctx.closePath();
+  ctx.fill();
+  // Bright core dot
+  ctx.globalAlpha = a * 0.55;
+  ctx.fillStyle   = '#fff';
+  ctx.beginPath();
+  ctx.arc(x, y, sz * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawGlitter(ps, t) {
+  for (const p of ps) {
+    const a = 0.28 + 0.72 * (0.5 + 0.5 * Math.sin(t * p.sp + p.ph));
+    drawStar(p.x + Math.sin(t * 0.5 + p.ph) * 2.5,
+             p.y + Math.cos(t * 0.32 + p.ph) * 1.5,
+             p.sz, p.col, a);
+  }
+}
+
+function drawFairy(x, y, fl) {
+  if (!fairyImg.complete || !fairyImg.naturalWidth) return;
+  ctx.save();
+  if (fl) { ctx.translate(x + FW, y); ctx.scale(-1, 1); }
+  else    { ctx.translate(x,      y); }
+  ctx.drawImage(fairyImg, 0, 0, FW, FH);
+  ctx.restore();
+}
+
+function drawPot(a) {
+  if (!potImg.complete || !potImg.naturalWidth) return;
+  ctx.save();
+  ctx.globalAlpha = a ?? 1;
+  ctx.drawImage(potImg, potX, potY, Math.round(148 * potSc), Math.round(228 * potSc));
+  ctx.restore();
+}
+
+function drawFlower() {
+  if (selectedSeed === null) return;
+  const img = flowerImgs[selectedSeed];
+  if (!img.complete || !img.naturalWidth) return;
+  const fW = Math.round(110 * potSc);
+  const fH = Math.round(fW  * img.naturalHeight / img.naturalWidth);
+  ctx.drawImage(img,
+    potHeadSX - fW / 2,
+    potY - fH + Math.round(18 * potSc),
+    fW, fH);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SEED POUCHES
+// ─────────────────────────────────────────────────────────────────────────────
+function drawPouch(lay, pouch, idx, t) {
+  if (pouch.opacity <= 0) return;
+  const { cx, vineLen, w, h } = lay;
+  const sw  = Math.sin(t * 0.48 + idx * 1.1) * 3.5; // gentle sway
+  const pcx = cx + sw;
+
+  ctx.save();
+  ctx.globalAlpha = pouch.opacity;
+
+  // Hanging vine
+  ctx.beginPath();
+  ctx.moveTo(cx, 0);
+  ctx.bezierCurveTo(cx + sw * 0.3, vineLen * 0.35,
+                    pcx + sw * 0.1, vineLen * 0.7,
+                    pcx, vineLen);
+  ctx.strokeStyle = '#3d6b2a';
+  ctx.lineWidth   = 1.6;
+  ctx.stroke();
+
+  // Leaf on vine
+  const lp = ptOnBez(0.55, cx,0, cx+sw*0.3,vineLen*0.35, pcx+sw*0.1,vineLen*0.7, pcx,vineLen);
+  ctx.save();
+  ctx.translate(lp.x, lp.y);
+  ctx.rotate(idx % 2 === 0 ? 0.55 : -0.55);
+  ctx.beginPath();
+  ctx.ellipse(9, 0, 11, 5, 0.15, 0, Math.PI * 2);
+  ctx.fillStyle = '#4d8030';
+  ctx.fill();
+  ctx.restore();
+
+  const ty = vineLen;
+
+  // String loop
+  ctx.beginPath();
+  ctx.arc(pcx, ty + 6, 5, 0, Math.PI * 2);
+  ctx.strokeStyle = POUCH_TRIM[idx];
+  ctx.lineWidth   = 1.8;
+  ctx.stroke();
+
+  // Neck gather
+  ctx.beginPath();
+  ctx.moveTo(pcx - 9,  ty + 10);
+  ctx.bezierCurveTo(pcx - 4, ty + 16, pcx + 4, ty + 16, pcx + 9, ty + 10);
+  ctx.fillStyle = POUCH_TRIM[idx];
+  ctx.fill();
+
+  // Bag body
+  const bx = pcx - w * 0.42;
+  const by = ty  + 14;
+  ctx.beginPath();
+  ctx.moveTo(bx,           by);
+  ctx.lineTo(bx + w * 0.84, by);
+  ctx.lineTo(bx + w * 0.90, by + h);
+  ctx.lineTo(bx - 0.06 * w, by + h);
+  ctx.closePath();
+  ctx.fillStyle   = POUCH_BODY[idx];
+  ctx.fill();
+  ctx.strokeStyle = POUCH_TRIM[idx];
+  ctx.lineWidth   = 1.6;
+  ctx.stroke();
+
+  // Stitching line
+  ctx.beginPath();
+  ctx.moveTo(bx + 5,            by + 11);
+  ctx.lineTo(bx + w * 0.84 - 5, by + 11);
+  ctx.strokeStyle = POUCH_TRIM[idx];
+  ctx.lineWidth   = 0.9;
+  ctx.globalAlpha = pouch.opacity * 0.5;
+  ctx.stroke();
+  ctx.globalAlpha = pouch.opacity;
+
+  // Star emblem
+  drawStar(pcx, by + h * 0.52, 5.5, POUCH_TRIM[idx], pouch.opacity * 0.85);
+
+  ctx.restore();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FLOATING "I need growth" TEXT
+// ─────────────────────────────────────────────────────────────────────────────
+function drawFloatingText(t) {
+  const str      = 'I need growth';
+  const chars    = str.split('');
+  const fontSize = Math.max(22, Math.round(W / 44));
+  ctx.font        = `400 ${fontSize}px 'Cinzel', serif`;
+  ctx.textBaseline = 'middle';
+
+  // Measure widths
+  let total = 0;
+  const ws = chars.map(c => { const w = ctx.measureText(c).width; total += w; return w; });
+
+  const baseX = potX + Math.round(74 * potSc) - total / 2;
+  const baseY = potY - 68;
+
+  let cx = baseX;
+  chars.forEach((ch, i) => {
+    const oy = Math.sin(t * 0.85 + i * 0.52) * 5.5;
+    ctx.globalAlpha = 0.14 + Math.sin(t * 0.3 + i * 0.3) * 0.025;
+    ctx.fillStyle   = '#d0c8ff';
+    ctx.fillText(ch, cx, baseY + oy);
+    cx += ws[i];
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PROMPT "SELECT THIS VARIANT?" / "press y to obtain"
+// ─────────────────────────────────────────────────────────────────────────────
+let promptAlpha    = 0;
+let touchingPouch  = -1;
+let lastPromptIdx  = 0;
+
+function drawPrompt(pIdx, alpha) {
+  if (alpha <= 0) return;
+  const col      = pouches[pIdx].color;
+  const fontSize = Math.max(20, Math.round(W / 52));
+  const cy       = H * 0.36;
+
+  // Line 1 parts
+  const parts = [
+    { text: 'SELECT ', col: '#e8e0ff' },
+    { text: 'THIS',    col },
+    { text: ' VARIANT?', col: '#e8e0ff' },
+  ];
+  ctx.font        = `600 ${fontSize}px 'Cinzel', serif`;
+  ctx.textBaseline = 'middle';
+
+  let total = 0;
+  const measures = parts.map(p => { const w = ctx.measureText(p.text).width; total += w; return w; });
+  let px = W / 2 - total / 2;
+
+  parts.forEach((p, i) => {
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.fillStyle   = p.col;
+    ctx.fillText(p.text, px, cy);
+    px += measures[i];
+  });
+
+  // Line 2
+  const subSz = Math.max(13, Math.round(W / 82));
+  ctx.font        = `italic 400 ${subSz}px 'Cormorant Garamond', serif`;
+  ctx.globalAlpha = alpha * 0.72;
+  ctx.fillStyle   = '#c0b8d8';
+  ctx.textAlign   = 'center';
+  ctx.fillText('press y to obtain', W / 2, cy + fontSize + 14);
+  ctx.textAlign   = 'left';
+  ctx.globalAlpha = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  TRANSITION OVERLAY
+// ─────────────────────────────────────────────────────────────────────────────
+let transAlpha    = 0;
+let transPhase    = 'idle'; // 'in' | 'out' | 'idle'
+let transCB       = null;
+const TRANS_SPEED = 2.8;
+let transCooldown = 0;
+
+function startTransition(cb) {
+  transAlpha = 0;
+  transPhase = 'in';
+  transCB    = cb;
+}
+function updateTrans(dt) {
+  if (transPhase === 'idle') return;
+  if (transPhase === 'in') {
+    transAlpha = Math.min(1, transAlpha + dt * TRANS_SPEED);
+    if (transAlpha >= 1) {
+      if (transCB) { transCB(); transCB = null; }
+      transPhase = 'out';
+    }
+  } else {
+    transAlpha = Math.max(0, transAlpha - dt * TRANS_SPEED);
+    if (transAlpha <= 0) { transPhase = 'idle'; transCooldown = 0.9; }
+  }
+}
+function drawTransOverlay() {
+  if (transAlpha <= 0) return;
+  ctx.globalAlpha = transAlpha;
+  ctx.fillStyle   = '#c8e8ff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  FLASH / BLOOM
+// ─────────────────────────────────────────────────────────────────────────────
+let flashPhase   = 'idle'; // 'bloom' | 'in' | 'out' | 'idle'
+let bloomProg    = 0;
+let flashAlpha   = 0;
+
+function startFlash() {
+  flashPhase = 'bloom';
+  bloomProg  = 0;
+  flashAlpha = 0;
+}
+function updateFlash(dt) {
+  if (flashPhase === 'idle') return;
+  if (flashPhase === 'bloom') {
+    bloomProg = Math.min(1, bloomProg + dt * 1.1);
+    if (bloomProg >= 1) flashPhase = 'in';
+  } else if (flashPhase === 'in') {
+    flashAlpha = Math.min(1, flashAlpha + dt * 1.8);
+    if (flashAlpha >= 1) flashPhase = 'out';
+  } else {
+    flashAlpha = Math.max(0, flashAlpha - dt * 1.0);
+    if (flashAlpha <= 0) { flashPhase = 'idle'; gameState = 'room1_bloomed'; }
+  }
+}
+function drawFlash() {
+  if (flashPhase === 'idle') return;
+  if (bloomProg > 0) {
+    const maxR = Math.hypot(W, H) * 0.9;
+    const g    = ctx.createRadialGradient(
+      potHeadSX, potHeadSY, 0,
+      potHeadSX, potHeadSY, maxR * bloomProg
+    );
+    g.addColorStop(0,   `rgba(255,255,210,${0.9 * Math.min(bloomProg,1)})`);
+    g.addColorStop(0.45,`rgba(255,248,170,${0.5 * Math.min(bloomProg,1)})`);
+    g.addColorStop(1,    'rgba(255,248,170,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+  if (flashAlpha > 0) {
+    ctx.globalAlpha = flashAlpha;
+    ctx.fillStyle   = '#fffef2';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  COLLISION
+// ─────────────────────────────────────────────────────────────────────────────
+function overlap(ax,ay,aw,ah, bx,by,bw,bh) {
+  return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
+}
+function fairyBox() {
+  const m = 22;
+  return { x: fairy.x+m, y: fairy.y+m, w: FW-m*2, h: FH-m*2 };
+}
+function touchesRPortal() {
+  const b = fairyBox();
+  return overlap(b.x,b.y,b.w,b.h, rPortalX,120, rPortalW, H-240);
+}
+function touchesLPortal() {
+  const b = fairyBox();
+  return overlap(b.x,b.y,b.w,b.h, lPortalX,120, lPortalW, H-240);
+}
+function touchingPouchIdx() {
+  const b = fairyBox();
+  for (let i = 0; i < 3; i++) {
+    if (!pouches[i].active) continue;
+    const lay = pouchLayouts[i];
+    const px  = lay.cx - lay.w * 0.5 - 8;
+    const py  = lay.vineLen + 8;
+    if (overlap(b.x,b.y,b.w,b.h, px,py, lay.w+16, lay.h+16)) return i;
+  }
+  return -1;
+}
+function touchesPot() {
+  const b   = fairyBox();
+  const pw  = Math.round(148 * potSc);
+  const ph  = Math.round(228 * potSc);
+  return overlap(b.x,b.y,b.w,b.h, potX,potY, pw,ph);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Y KEY
+// ─────────────────────────────────────────────────────────────────────────────
+function handleY() {
+  if (gameState !== 'room2' || seedObtained || touchingPouch < 0) return;
+  const idx   = touchingPouch;
+  const pouch = pouches[idx];
+  if (!pouch.active) return;
+
+  selectedSeed  = idx;
+  seedObtained  = true;
+  pouch.active  = false;
+  touchingPouch = -1;
+  promptAlpha   = 0;
+
+  // Animate fade
+  const fade = setInterval(() => {
+    pouch.opacity = Math.max(0, pouch.opacity - 0.04);
+    if (pouch.opacity <= 0) clearInterval(fade);
+  }, 25);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MAIN LOOP
+// ─────────────────────────────────────────────────────────────────────────────
+let prevTS = null;
+
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = prevTS !== null ? Math.min((ts - prevTS) / 1000, 0.06) : 0;
+  prevTS   = ts;
+  const t  = ts / 1000;
+  if (transCooldown > 0) transCooldown = Math.max(0, transCooldown - dt);
+
+  ctx.clearRect(0, 0, W, H);
+  drawBg();
+
+  const canMove  = transPhase === 'idle' && flashPhase === 'idle';
+  const inRoom1  = gameState === 'room1_initial' || gameState === 'room1_seeded' || gameState === 'room1_bloomed';
+  const inRoom2  = gameState === 'room2';
+
+  // ── FAIRY MOVEMENT ──────────────────────────────────────────────────────
+  if (canMove) {
+    let tvx = 0, tvy = 0;
+    if (keys['ArrowLeft'])  tvx = -SPEED;
+    if (keys['ArrowRight']) tvx =  SPEED;
+    if (keys['ArrowUp'])    tvy = -SPEED;
+    if (keys['ArrowDown'])  tvy =  SPEED;
+
+    fairy.vx += (tvx - fairy.vx) * 0.22;
+    fairy.vy += (tvy - fairy.vy) * 0.22;
+
+    if (Math.abs(fairy.vx) > 0.4) fairy.facingLeft = fairy.vx < 0;
+    fairy.x += fairy.vx;
+    fairy.y += fairy.vy;
+    fairy.x = Math.max(0, Math.min(W - FW, fairy.x));
+    fairy.y = Math.max(0, Math.min(H - FH, fairy.y));
+  }
+
+  const floatY = Math.sin(t * 1.75) * 5.5;
+
+  // ── ROOM 1 ──────────────────────────────────────────────────────────────
+  if (inRoom1) {
+    // Ceiling vines (ghost + main)
+    for (const v of vinesCeiling) drawVine(v, 0.22);
+    for (const v of vinesCeiling) {
+      const ghost = { ...v, c1x: v.c1x - 12, c2x: v.c2x + 8 };
+      drawVine(ghost, 0.82);
+    }
+    // Longer vines above pot
+    for (const v of potVines) drawVine(v, 0.9);
+
+    drawPot(1);
+    if (gameState === 'room1_bloomed') drawFlower();
+
+    // Glitter portal (right)
+    drawGlitter(glitterR, t);
+
+    // "I need growth" floating text
+    if (gameState === 'room1_initial') drawFloatingText(t);
+
+    // Fairy
+    drawFairy(fairy.x, fairy.y + floatY, fairy.facingLeft);
+
+    // Portal trigger
+    if (canMove && transCooldown <= 0 && gameState !== 'room1_bloomed') {
+      if (touchesRPortal()) {
+        startTransition(() => {
+          gameState  = 'room2';
+          fairy.x    = lPortalX + lPortalW + 20;
+          fairy.y    = H / 2 - FH / 2;
+          fairy.vx   = 0; fairy.vy = 0;
+        });
+      }
+    }
+
+    // Pot touch → flash + bloom
+    if (gameState === 'room1_seeded' && canMove && !potActivated) {
+      if (touchesPot()) {
+        potActivated = true;
+        gameState    = 'room1_seeded'; // keep until bloom completes
+        startFlash();
+      }
+    }
+  }
+
+  // ── ROOM 2 ──────────────────────────────────────────────────────────────
+  if (inRoom2) {
+    for (const v of vinesCeiling) drawVine(v, 0.22);
+    for (const v of vinesCeiling) {
+      const ghost = { ...v, c1x: v.c1x - 12, c2x: v.c2x + 8 };
+      drawVine(ghost, 0.82);
+    }
+
+    // Left (return) glitter
+    drawGlitter(glitterL, t);
+
+    // Seed pouches
+    for (let i = 0; i < 3; i++) drawPouch(pouchLayouts[i], pouches[i], i, t);
+
+    // Prompt logic
+    if (!seedObtained) {
+      const ci = touchingPouchIdx();
+      touchingPouch = ci;
+      if (ci >= 0) lastPromptIdx = ci;
+      if (ci >= 0) promptAlpha = Math.min(1, promptAlpha + dt * 3.2);
+      else         promptAlpha = Math.max(0, promptAlpha - dt * 2.8);
+      drawPrompt(ci >= 0 ? ci : lastPromptIdx, promptAlpha);
+    } else {
+      promptAlpha   = 0;
+      touchingPouch = -1;
+    }
+
+    // Fairy
+    drawFairy(fairy.x, fairy.y + floatY, fairy.facingLeft);
+
+    // Left portal (return) – only after cooldown
+    if (canMove && transCooldown <= 0 && touchesLPortal()) {
+      startTransition(() => {
+        gameState = seedObtained ? 'room1_seeded' : 'room1_initial';
+        fairy.x   = rPortalX - FW - 20;
+        fairy.y   = H / 2 - FH / 2;
+        fairy.vx  = 0; fairy.vy = 0;
+      });
+    }
+  }
+
+  // ── OVERLAYS ────────────────────────────────────────────────────────────
+  updateFlash(dt);
+  drawFlash();
+  updateTrans(dt);
+  drawTransOverlay();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  START
+// ─────────────────────────────────────────────────────────────────────────────
+initAll();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
