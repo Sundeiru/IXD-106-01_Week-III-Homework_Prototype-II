@@ -297,8 +297,8 @@ function drawGlitter(ps, t) {
 function drawFairy(x, y, fl) {
   if (!fairyImg.complete || !fairyImg.naturalWidth) return;
   ctx.save();
-  if (fl) { ctx.translate(x + FW, y); ctx.scale(-1, 1); }
-  else    { ctx.translate(x,      y); }
+  if (!fl) { ctx.translate(x + FW, y); ctx.scale(-1, 1); }
+  else     { ctx.translate(x,      y); }
   ctx.drawImage(fairyImg, 0, 0, FW, FH);
   ctx.restore();
 }
